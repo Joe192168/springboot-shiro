@@ -102,6 +102,8 @@ public class JWTFilter extends BasicHttpAuthenticationFilter {
                         HttpServletResponse httpServletResponse = (HttpServletResponse) response;
                         httpServletResponse.setHeader("Authorization", newToken);
                         httpServletResponse.setHeader("Access-Control-Expose-Headers", "Authorization");
+                        Message message = new Message().ok(500,"登录超时，请重新登录!").addData("jwt",newToken);
+                        RequestResponseUtil.responseWrite(JSON.toJSONString(message),response);
                         return false;
                     }
                 }else{
@@ -142,18 +144,15 @@ public class JWTFilter extends BasicHttpAuthenticationFilter {
      */
     @Override
     protected boolean onAccessDenied(ServletRequest servletRequest, ServletResponse servletResponse) throws IOException {
-        log.debug("当 isAccessAllowed 返回 false 的时候，才会执行 method onAccessDenied ");
-        HttpServletRequest request =(HttpServletRequest) servletRequest;
-        HttpServletResponse response =(HttpServletResponse) servletResponse;
-        log.debug("授权失败，禁止访问:{}",getPathWithinApplication(request));
-        ObjectMapper objectMapper = new ObjectMapper();
-        response.setCharacterEncoding("UTF-8");
-        response.setContentType("application/json; charset=utf-8");
-        ResultVO<String> result = new ResultVO<>();
-        result.setCode(403);
-        result.setMsg("授权失败，禁止访问");
-        PrintWriter printWriter = response.getWriter();
-        printWriter.append(objectMapper.writeValueAsString(result));
+        Subject subject = getSubject(servletRequest,servletResponse);
+        // 未认证的情况上面已经处理  这里处理未授权
+        if (subject != null && subject.isAuthenticated()){
+            //  已经认证但未授权的情况
+            // 告知客户端JWT没有权限访问此资源
+            Message message = new Message().error(403,"无访问此资源权限！");
+            RequestResponseUtil.responseWrite(JSON.toJSONString(message),servletResponse);
+        }
+        // 过滤链终止
         return false;
     }
 
