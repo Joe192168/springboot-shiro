@@ -2,6 +2,7 @@ package com.joe.filter;
 
 import com.alibaba.fastjson.JSON;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.joe.domin.vo.JwtAccount;
 import com.joe.domin.vo.Message;
 import com.joe.domin.vo.ResultVO;
 import com.joe.ream.JWTToken;
@@ -86,15 +87,14 @@ public class JWTFilter extends BasicHttpAuthenticationFilter {
             } catch (AuthenticationException e) {
                 // 如果是JWT过期
                 if (STR_EXPIRED.equals(e.getMessage())) {
+                    String userName = WebUtils.toHttp(request).getHeader("appId");
                     String token = WebUtils.toHttp(request).getHeader("authorization");
+                    String refreshJwt = stringRedisTemplate.opsForValue().get("JWT-SESSION-"+userName);
                     //处理token过期的问题，登入成功后将token存入redis,并将过期时间设置为token过期的2倍，
                     //当token过期后,判断redis中的token是否存在，存在就生成新的token给前端,否则token过期,重新登录
-                    //这里没有处理并发问题
-                    //String refreshJwt = stringRedisTemplate.opsForValue().get("JWT-SESSION-"+appId);
-                    String userName = JWTUtil.getUserName(token);
-                    if(stringRedisTemplate.hasKey("JWT-SESSION-"+userName)){
+                    if (null != refreshJwt && refreshJwt.equals(token)) {
                         //重新生成token
-                        String newToken = JWTUtil.sign(JWTUtil.getUserName(token), secret);
+                        String newToken = JWTUtil.createJWT("Joe",userName,userName,"","", secret);
                         stringRedisTemplate.opsForValue().set("JWT-SESSION-"+userName,newToken);
                         stringRedisTemplate.expire("JWT-SESSION-"+userName,2*tokenExpireTime, TimeUnit.MINUTES);
                         //删掉以前的token
@@ -103,6 +103,10 @@ public class JWTFilter extends BasicHttpAuthenticationFilter {
                         httpServletResponse.setHeader("Authorization", newToken);
                         httpServletResponse.setHeader("Access-Control-Expose-Headers", "Authorization");
                         Message message = new Message().ok(500,"登录超时，请重新登录!").addData("jwt",newToken);
+                        RequestResponseUtil.responseWrite(JSON.toJSONString(message),response);
+                        return false;
+                    }else{
+                        Message message = new Message().error(500,"登录超时，请重新登录!");
                         RequestResponseUtil.responseWrite(JSON.toJSONString(message),response);
                         return false;
                     }
