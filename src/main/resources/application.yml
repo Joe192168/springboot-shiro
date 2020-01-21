@@ -36,9 +36,7 @@ mybatis-plus:
     map-underscore-to-camel-case: true
     cache-enabled: true
 logging:
-  level:
-    com:
-      joe: debug
+  config: classpath:log4j2.xml
 security:
   secret: token  #秘钥
 
