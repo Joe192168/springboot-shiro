@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.mapper.EntityWrapper;
 import com.baomidou.mybatisplus.mapper.Wrapper;
 import com.joe.domin.bo.SysUser;
 import com.joe.domin.vo.JwtAccount;
+import com.joe.domin.vo.RolePermRule;
 import com.joe.service.SysPermissionService;
+import com.joe.service.SysRolePermissionService;
 import com.joe.service.SysUserService;
 import com.joe.util.JWTUtil;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -25,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * 认证和鉴权接口
@@ -40,7 +43,7 @@ public class UserRealm extends AuthorizingRealm {
     private SysUserService sysUserService;
 
     @Autowired
-    private SysPermissionService sysPermissionService;
+    private SysRolePermissionService sysRolePermissionService;
 
     /**
      * 大坑！，必须重写此方法，不然Shiro会报错
@@ -58,7 +61,7 @@ public class UserRealm extends AuthorizingRealm {
      */
     @Override
     protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principals) {
-        String token=principals.getPrimaryPrincipal().toString();
+        /*String token=principals.getPrimaryPrincipal().toString();
         // 解密获得userName，用于和数据库进行查询
         JwtAccount jwtAccount = JWTUtil.parseJWT(token,secret);
         //从数据库读取资源
@@ -68,7 +71,16 @@ public class UserRealm extends AuthorizingRealm {
         //sysPermissions.add("/GET/sysUser/**");
         //sysPermissions.add("/DELETE/sysUser");
         SimpleAuthorizationInfo info = new SimpleAuthorizationInfo();
-        info.addStringPermissions(sysPermissions);
+        info.addStringPermissions(sysPermissions);*/
+        JwtAccount jwtAccount = (JwtAccount) principals.getPrimaryPrincipal();
+        // -------------dynamic 动态URL
+        Set<String> roles = JWTUtil.split(jwtAccount.getRoles());
+        Set<String> permissions = JWTUtil.split(jwtAccount.getPerms());
+        SimpleAuthorizationInfo info = new SimpleAuthorizationInfo();
+        if(null!=jwtAccount&&!roles.isEmpty())
+            info.setRoles(roles);
+        if(null!=permissions&&!permissions.isEmpty())
+            info.setStringPermissions(permissions);
         return info;
     }
 
@@ -105,9 +117,9 @@ public class UserRealm extends AuthorizingRealm {
         objectEntityWrapper.eq("user_name",jwtAccount.getUserId());
         SysUser sysUser = sysUserService.selectOne(objectEntityWrapper);
         if (sysUser == null) {
-            throw new AuthenticationException("User didn't existed!");
+            throw new AuthenticationException("用户信息不存在!");
         }
-        return new SimpleAuthenticationInfo(token, token, "my_realm");
+        return new SimpleAuthenticationInfo(jwtAccount, token, this.getName());
     }
 
 }

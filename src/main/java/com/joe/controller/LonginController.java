@@ -2,8 +2,12 @@ package com.joe.controller;
 
 import com.baomidou.mybatisplus.mapper.EntityWrapper;
 import com.baomidou.mybatisplus.mapper.Wrapper;
+import com.joe.domin.bo.SysRole;
 import com.joe.domin.bo.SysUser;
-import com.joe.domin.vo.ResultVO;
+import com.joe.domin.bo.SysUserRole;
+import com.joe.domin.vo.Message;
+import com.joe.service.SysRoleService;
+import com.joe.service.SysUserRoleService;
 import com.joe.service.SysUserService;
 import com.joe.util.JWTUtil;
 import org.apache.shiro.authz.UnauthorizedException;
@@ -15,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -30,28 +35,32 @@ public class LonginController {
 
     @Autowired
     private SysUserService sysUserService;
+    @Autowired
+    private SysUserRoleService sysUserRoleService;
 
     @Autowired
-    private StringRedisTemplate stringRedisTemplate;
+    private StringRedisTemplate redisTemplate;
 
     @PostMapping("/login")
-    public ResultVO login(@RequestBody SysUser sysUserReq) {
+    public Message login(@RequestBody SysUser sysUserReq) {
         try {
             Wrapper<SysUser> sysUserEntityWrapper = new EntityWrapper<>();
             sysUserEntityWrapper.eq("user_name",sysUserReq.getUserName());
             SysUser sysUserDB = sysUserService.selectOne(sysUserEntityWrapper);
+
+            String roles = "1,2";
             //加密密码
             SimpleHash simpleHash = new SimpleHash("md5", sysUserReq.getPassword().getBytes(), sysUserDB.getSalt(), 1);
             if(sysUserDB.getPassword().equals(simpleHash.toHex())){
-                String token = JWTUtil.createJWT("Joe",sysUserDB.getUserName(),sysUserDB.getUserName(),"","", secret);
-                stringRedisTemplate.opsForValue().set("JWT-SESSION-"+sysUserReq.getUserName(),token);
-                stringRedisTemplate.expire("JWT-SESSION-"+sysUserReq.getUserName(),2*tokenExpireTime, TimeUnit.MINUTES);
-                return new ResultVO().returnSuccess(token);
+                String token = JWTUtil.createJWT("Joe",sysUserDB.getUserName(),sysUserDB.getUserName(),roles,"", secret);
+                redisTemplate.opsForValue().set("JWT-SESSION-"+sysUserReq.getUserName(),token);
+                redisTemplate.expire("JWT-SESSION-"+sysUserReq.getUserName(),2*tokenExpireTime, TimeUnit.MINUTES);
+                return new Message().ok("登陆成功！").addData("token",token);
             }else{
-                throw new UnauthorizedException("用户名或密码错误");
+                return new Message().error("用户名或密码错误！");
             }
         } catch (Exception e) {
-            throw new UnauthorizedException("登陆异常!");
+            return new Message().error("登陆异常！");
         }
     }
 }

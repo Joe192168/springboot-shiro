@@ -1,7 +1,7 @@
 package com.joe.controller;
 
 import com.joe.domin.bo.SysUser;
-import com.joe.domin.vo.ResultVO;
+import com.joe.domin.vo.Message;
 import com.joe.service.SysUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,14 +20,14 @@ public class SysUserController {
     private SysUserService sysUserService;
 
     @GetMapping("/getUserlist")
-    public ResultVO getUserList(){
-        return null;
+    public Message getUserList(){
+        return new Message().ok("成功");
     }
 
     @GetMapping("/getList")
-    public ResultVO getList(){
+    public Message getList(){
         List<SysUser> sysUsers = sysUserService.selectList(null);
-        return new ResultVO(sysUsers);
+        return new Message().ok("获取数据成功!").addData("userList",sysUsers);
     }
 
 }

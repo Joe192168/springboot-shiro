@@ -1,10 +1,7 @@
 package com.joe.filter;
 
 import com.alibaba.fastjson.JSON;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.joe.domin.vo.JwtAccount;
 import com.joe.domin.vo.Message;
-import com.joe.domin.vo.ResultVO;
 import com.joe.ream.JWTToken;
 import com.joe.util.IpUtil;
 import com.joe.util.JWTUtil;
@@ -14,6 +11,7 @@ import org.apache.shiro.authc.AuthenticationException;
 import org.apache.shiro.subject.Subject;
 import org.apache.shiro.web.filter.authc.BasicHttpAuthenticationFilter;
 import org.apache.shiro.web.util.WebUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -22,8 +20,8 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 /**
  * jwt实现shiro接口
@@ -37,12 +35,17 @@ public class JWTFilter extends BasicHttpAuthenticationFilter {
 
     private Integer tokenExpireTime;
 
-    private StringRedisTemplate stringRedisTemplate;
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+
+    public JWTFilter(){
+
+    }
 
     public JWTFilter(String secret, Integer tokenExpireTime, StringRedisTemplate stringRedisTemplate) {
         this.secret = secret;
         this.tokenExpireTime = tokenExpireTime;
-        this.stringRedisTemplate = stringRedisTemplate;
+        this.redisTemplate = stringRedisTemplate;
     }
 
     /**
@@ -80,33 +83,35 @@ public class JWTFilter extends BasicHttpAuthenticationFilter {
      **/
     @Override
     protected boolean isAccessAllowed(ServletRequest request, ServletResponse response, Object mappedValue){
+        Subject subject = getSubject(request,response);
         if (isLoginAttempt(request, response)) {
             //登录验证
             try {
                 executeLogin(request, response);
+                return this.checkRoles(subject,mappedValue);
             } catch (AuthenticationException e) {
                 // 如果是JWT过期
                 if (STR_EXPIRED.equals(e.getMessage())) {
                     String userName = WebUtils.toHttp(request).getHeader("appId");
                     String token = WebUtils.toHttp(request).getHeader("authorization");
-                    String refreshJwt = stringRedisTemplate.opsForValue().get("JWT-SESSION-"+userName);
+                    String refreshJwt = redisTemplate.opsForValue().get("JWT-SESSION-"+userName);
                     //处理token过期的问题，登入成功后将token存入redis,并将过期时间设置为token过期的2倍，
                     //当token过期后,判断redis中的token是否存在，存在就生成新的token给前端,否则token过期,重新登录
                     if (null != refreshJwt && refreshJwt.equals(token)) {
                         //重新生成token
                         String newToken = JWTUtil.createJWT("Joe",userName,userName,"","", secret);
-                        stringRedisTemplate.opsForValue().set("JWT-SESSION-"+userName,newToken);
-                        stringRedisTemplate.expire("JWT-SESSION-"+userName,2*tokenExpireTime, TimeUnit.MINUTES);
+                        redisTemplate.opsForValue().set("JWT-SESSION-"+userName,newToken);
+                        redisTemplate.expire("JWT-SESSION-"+userName,2*tokenExpireTime, TimeUnit.MINUTES);
                         //删掉以前的token
-                        stringRedisTemplate.delete(token);
+                        redisTemplate.delete(token);
                         HttpServletResponse httpServletResponse = (HttpServletResponse) response;
                         httpServletResponse.setHeader("Authorization", newToken);
                         httpServletResponse.setHeader("Access-Control-Expose-Headers", "Authorization");
-                        Message message = new Message().ok(500,"登录超时，请重新登录!").addData("jwt",newToken);
+                        Message message = new Message().ok(500,"token超时，以获取最新token进行替换！").addData("token",newToken);
                         RequestResponseUtil.responseWrite(JSON.toJSONString(message),response);
                         return false;
                     }else{
-                        Message message = new Message().error(500,"登录超时，请重新登录!");
+                        Message message = new Message().error(500,"token失效，请重新登录!");
                         RequestResponseUtil.responseWrite(JSON.toJSONString(message),response);
                         return false;
                     }
@@ -130,12 +135,12 @@ public class JWTFilter extends BasicHttpAuthenticationFilter {
             return false;
         }
         //url鉴权
-        Subject subject = getSubject(request,response);
+        //Subject subject = getSubject(request,response);
         //获取请求方式
-        String method = WebUtils.toHttp(request).getMethod();
+        //String method = WebUtils.toHttp(request).getMethod();
         //subject.isPermitted返回false表示未授权 true已授权 会去调用ream中的授权 这里控制的方法级别 /GET/sysUser/**
         //如果访问的url没有被授权则会拒绝访问，走访问拒绝的处理逻辑onAccessDenied，有则放行
-        return subject.isPermitted("/"+method+getPathWithinApplication(request));
+        //return subject.isPermitted("/"+method+getPathWithinApplication(request));
     }
 
     /**
@@ -177,4 +182,22 @@ public class JWTFilter extends BasicHttpAuthenticationFilter {
         }
         return super.preHandle(request, response);
     }
+
+    /**
+     * description 验证当前用户是否属于mappedValue任意一个角色
+     *
+     * @param subject 1
+     * @param mappedValue 2
+     * @return boolean
+     */
+    private boolean checkRoles(Subject subject, Object mappedValue){
+        String[] rolesArray = (String[]) mappedValue;
+        //这块修改成校验权限，加载shiro池为权限值
+        return rolesArray == null || rolesArray.length == 0 || Stream.of(rolesArray).anyMatch(role -> subject.hasRole(role.trim()));
+    }
+
+    public void setRedisTemplate(StringRedisTemplate redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
+
 }

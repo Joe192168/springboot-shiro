@@ -12,5 +12,13 @@
     <sql id="Base_Column_List">
         role_id, permission_id
     </sql>
+    <select id="loadRolePermRules" resultType="com.joe.domin.vo.RolePermRule">
+    select  CONCAT(rp.url, "==",UCASE(rp.method)) as url,GROUP_CONCAT(rol.role_code ORDER BY rp.url) as needRoles
+    from sys_permission rp
+    LEFT JOIN sys_role_permission ro on rp.id = ro.permission_id
+    LEFT JOIN sys_role rol on ro.role_id = rol.role_id
+    where rp.res_type = 2
+    GROUP BY rp.url,rp.ID
+    </select>
 
 </mapper>

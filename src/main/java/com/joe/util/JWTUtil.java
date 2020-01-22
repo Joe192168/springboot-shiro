@@ -3,12 +3,10 @@ package com.joe.util;
 import com.joe.domin.vo.JwtAccount;
 import io.jsonwebtoken.*;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import javax.xml.bind.DatatypeConverter;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * @author Joe
@@ -98,6 +96,17 @@ public class JWTUtil {
         jwtAccount.setRoles(claims.get("roles", String.class));// 访问主张-角色
         jwtAccount.setPerms(claims.get("perms", String.class));// 访问主张-权限
         return jwtAccount;
+    }
+
+    /**
+     * 分割字符串进SET
+     */
+    public static Set<String> split(String str) {
+        Set<String> set = new HashSet<>();
+        if (StringUtils.isEmpty(str))
+            return set;
+        set.addAll(CollectionUtils.arrayToList(str.split(",")));
+        return set;
     }
 
 }

@@ -1,6 +1,7 @@
 package com.joe.config;
 
 import com.joe.filter.JWTFilter;
+import com.joe.filter.ShiroFilterChainManager;
 import com.joe.ream.UrlPermissionResolver;
 import com.joe.ream.UserRealm;
 import com.joe.util.JwtProperties;
@@ -26,6 +27,7 @@ import java.util.Map;
 @Configuration
 public class ShiroConfig {
 
+    //自定义realm
     @Bean
     public UserRealm userRealm(){
         UserRealm userRealm = new UserRealm();
@@ -54,27 +56,13 @@ public class ShiroConfig {
 
 
     @Bean("shiroFilter")
-    public ShiroFilterFactoryBean factory(DefaultWebSecurityManager securityManager, StringRedisTemplate stringRedisTemplate, JwtProperties jwtProp) {
+    public ShiroFilterFactoryBean factory(DefaultWebSecurityManager securityManager, ShiroFilterChainManager filterChainManager,JwtProperties jwtProp) {
         ShiroFilterFactoryBean factoryBean = new ShiroFilterFactoryBean();
-
-        // 添加自己的过滤器并且取名为jwt
-        Map<String, Filter> filterMap = new HashMap<>();
-        filterMap.put("jwt", new JWTFilter(jwtProp.getSecret(),jwtProp.getTokenExpireTime(),stringRedisTemplate));
-        factoryBean.setFilters(filterMap);
-
         factoryBean.setSecurityManager(securityManager);
-
-        /*
-         * 自定义url规则
-         * http://shiro.apache.org/web.html#urls-
-         */
-        Map<String, String> filterRuleMap = new HashMap<>();
-        // 所有请求通过我们自己的JWT Filter
-        filterRuleMap.put("/login", "anon");
-        filterRuleMap.put("/**", "jwt");
-        // 访问401和404页面不通过我们的Filter
-        filterRuleMap.put("/401", "anon");
-        factoryBean.setFilterChainDefinitionMap(filterRuleMap);
+        // 添加自己的过滤器并且取名为jwt
+        factoryBean.setFilters(filterChainManager.initGetFilters(jwtProp));
+        // 添加配置过滤链规则
+        factoryBean.setFilterChainDefinitionMap(filterChainManager.initGetFilterChain());
         return factoryBean;
     }
 

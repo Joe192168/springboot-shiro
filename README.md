@@ -20,13 +20,13 @@ http://localhost:8080/login
 
 http://localhost:8080/sysUser/getList
 
-![image-20200121154736593](C:\Users\Lenovo\AppData\Roaming\Typora\typora-user-images\image-20200121154736593.png)
+![image-20200122092946510](C:\Users\Lenovo\AppData\Roaming\Typora\typora-user-images\image-20200122092946510.png)
 
 3、无权访问验证
 
 http://localhost:8080/sysUser/getUserlist
 
-![image-20200121155853945](C:\Users\Lenovo\AppData\Roaming\Typora\typora-user-images\image-20200121155853945.png)
+![image-20200122093041510](C:\Users\Lenovo\AppData\Roaming\Typora\typora-user-images\image-20200122093041510.png)
 
 
 

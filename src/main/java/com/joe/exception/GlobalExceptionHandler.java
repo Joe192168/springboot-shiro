@@ -1,6 +1,6 @@
 package com.joe.exception;
 
-import com.joe.domin.vo.ResultVO;
+import com.joe.domin.vo.Message;
 import org.apache.shiro.authz.UnauthenticatedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,11 +24,11 @@ public class GlobalExceptionHandler implements ApplicationContextAware {
 
     @ExceptionHandler(value = Exception.class)
     @ResponseBody
-    public ResultVO defaultErrorHandler(HttpServletRequest request, Exception e) throws Exception {
+    public Message defaultErrorHandler(HttpServletRequest request, Exception e) throws Exception {
         if(e instanceof UnauthenticatedException){
-            return new ResultVO().returnFail("无认证");
+            return new Message().error("无认证");
         }
-        return new ResultVO().returnFail(e.getMessage());
+        return new Message().error(e.getMessage());
     }
 
 	@Override
